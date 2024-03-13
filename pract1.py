@@ -34,7 +34,7 @@ def convertTypes(matrix):
         vector[headers.index('CoapplicantIncome')] = int(vector[headers.index('CoapplicantIncome')].replace(".", ""))
         vector[headers.index('LoanAmount')] = int(vector[headers.index('LoanAmount')])
         vector[headers.index('LoanAmountTerm')] = timedelta( days = int(vector[headers.index('LoanAmountTerm')]))
-        vector[headers.index('LoanStatus')] = vector[headers.index('LoanAmountTerm')] != 'N'
+        vector[headers.index('LoanStatus')] = vector[headers.index('LoanStatus')] != 'N'
     return matrix
 
 def deleteOutliers(dataFrame : pd.DataFrame):
@@ -57,6 +57,35 @@ def deleteOutliers(dataFrame : pd.DataFrame):
     dataFrame = dataFrame[dataFrame['LoanAmountTerm'] <= loanAmountTermOutlierLimits[max]]
     return dataFrame
 
+def overSampleForBalance(dataFrame):
+    y = dataFrame["LoanStatus"]
+    ratio, trueCount, falseCount = 0,0,0
+    for count in y.value_counts():
+        if(trueCount == 0):
+            trueCount = count
+        else:
+            falseCount = count
+    if(trueCount < falseCount):
+        ratio = falseCount/trueCount
+        repeatedDf = pd.DataFrame(np.repeat(dataFrame[dataFrame["LoanStatus"] == True].values, ratio - 1 , axis=0), columns = dataFrame.columns)
+        dataFrame = pd.concat([dataFrame, repeatedDf])
+    else:
+        ratio = trueCount/falseCount
+        repeatedDf = pd.DataFrame(np.repeat(dataFrame[dataFrame["LoanStatus"] == False].values, ratio - 1 , axis=0), columns = dataFrame.columns)
+        print(repeatedDf)
+        dataFrame = pd.concat([dataFrame, repeatedDf])
+
+    y = dataFrame["LoanStatus"]
+    ratio, trueCount, falseCount = 0,0,0
+    for count in y.value_counts():
+        if(trueCount == 0):
+            trueCount = count
+        else:
+            falseCount = count
+    print(trueCount)
+    print(falseCount)
+    return dataFrame
+
 data = open('./homeLoanAproval.csv', 'r')
 headers = data.readline().replace("\n", "").split(",")
 print(headers)
@@ -74,7 +103,13 @@ bodyDf = pd.DataFrame(body, columns = headers)
 bodyDf = deleteOutliers(bodyDf)
 
 
-bodyDf = dropUnnecessaryElements(bodyDf) 
+bodyDf = dropUnnecessaryElements(bodyDf)
 
+trainingDf = bodyDf.sample(frac=0.7)
+evalDf = pd.concat([bodyDf,trainingDf]).drop_duplicates(keep=False)
+
+trainingDf = overSampleForBalance(trainingDf)
 
 print(bodyDf)
+print(trainingDf)
+print(evalDf)
