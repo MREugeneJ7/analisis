@@ -1,6 +1,12 @@
 from datetime import timedelta
 import pandas as pd
 import numpy as np
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.preprocessing import LabelEncoder
+from sklearn import tree
+import matplotlib.pyplot as plt
+from sklearn.naive_bayes import GaussianNB
+from matplotlib.colors import ListedColormap
 
 def noFieldEmpty(array):
     for field in array:
@@ -35,6 +41,7 @@ def convertTypes(matrix):
         vector[headers.index('LoanAmount')] = int(vector[headers.index('LoanAmount')])
         vector[headers.index('LoanAmountTerm')] = timedelta( days = int(vector[headers.index('LoanAmountTerm')]))
         vector[headers.index('LoanStatus')] = vector[headers.index('LoanStatus')] != 'N'
+    print(matrix)
     return matrix
 
 def deleteOutliers(dataFrame : pd.DataFrame):
@@ -68,12 +75,13 @@ def overSampleForBalance(dataFrame):
     if(trueCount < falseCount):
         ratio = falseCount/trueCount
         repeatedDf = pd.DataFrame(np.repeat(dataFrame[dataFrame["LoanStatus"] == True].values, ratio - 1 , axis=0), columns = dataFrame.columns)
-        dataFrame = pd.concat([dataFrame, repeatedDf])
+        sampleDf = dataFrame[dataFrame["LoanStatus"] == True].sample(frac = ratio - int(ratio))
+        dataFrame = pd.concat([dataFrame, repeatedDf, sampleDf])
     else:
         ratio = trueCount/falseCount
         repeatedDf = pd.DataFrame(np.repeat(dataFrame[dataFrame["LoanStatus"] == False].values, ratio - 1 , axis=0), columns = dataFrame.columns)
-        print(repeatedDf)
-        dataFrame = pd.concat([dataFrame, repeatedDf])
+        sampleDf = dataFrame[dataFrame["LoanStatus"] == False].sample(frac = ratio - int(ratio))
+        dataFrame = pd.concat([dataFrame, repeatedDf, sampleDf])
 
     y = dataFrame["LoanStatus"]
     ratio, trueCount, falseCount = 0,0,0
@@ -100,6 +108,7 @@ body = convertTypes(body)
 body = np.array(body)
 bodyDf = pd.DataFrame(body, columns = headers)
 
+
 bodyDf = deleteOutliers(bodyDf)
 
 
@@ -110,6 +119,45 @@ evalDf = pd.concat([bodyDf,trainingDf]).drop_duplicates(keep=False)
 
 trainingDf = overSampleForBalance(trainingDf)
 
-print(bodyDf)
-print(trainingDf)
-print(evalDf)
+#Prepare the dataframe to fuck it up
+
+le = LabelEncoder()
+le.fit(pd.concat([trainingDf["Gender"], trainingDf["Education"], trainingDf["PropertyArea"]]))
+trainingDf["Gender"] = le.transform(trainingDf["Gender"])
+trainingDf["Education"] = le.transform(trainingDf["Education"])
+trainingDf["PropertyArea"] = le.transform(trainingDf["PropertyArea"])
+trainingDf["LoanAmountTerm"] = trainingDf["LoanAmountTerm"].map( lambda x : x.total_seconds())
+
+evalDf["Gender"] = le.transform(evalDf["Gender"])
+evalDf["Education"] = le.transform(evalDf["Education"])
+evalDf["PropertyArea"] = le.transform(evalDf["PropertyArea"])
+evalDf["LoanAmountTerm"] = evalDf["LoanAmountTerm"].map( lambda x : x.total_seconds())
+
+
+#KNN
+
+n = KNeighborsClassifier(3)
+n.fit(trainingDf.drop("LoanStatus", axis=1), trainingDf["LoanStatus"].map(lambda x : str(x)))
+
+score = n.score(evalDf.drop("LoanStatus", axis=1), evalDf["LoanStatus"].map(lambda x : str(x)))
+
+print(score)
+
+#Arbol
+
+clf = tree.DecisionTreeClassifier(max_depth=5)
+clf = clf.fit(trainingDf.drop("LoanStatus", axis=1), trainingDf["LoanStatus"].map(lambda x : str(x)))
+treeScore = clf.score(evalDf.drop("LoanStatus", axis=1), evalDf["LoanStatus"].map(lambda x : str(x)))
+
+print(treeScore)
+
+tree.plot_tree(clf)
+
+plt.show()
+
+#Naive BAyes
+gnb = GaussianNB()
+gnb = gnb.fit(trainingDf.drop("LoanStatus", axis=1), trainingDf["LoanStatus"].map(lambda x : str(x)))
+naiveScore = gnb.score(evalDf.drop("LoanStatus", axis=1), evalDf["LoanStatus"].map(lambda x : str(x)))
+
+print(naiveScore)
