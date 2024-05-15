@@ -7,6 +7,7 @@ from sklearn import tree
 import matplotlib.pyplot as plt
 from sklearn.naive_bayes import GaussianNB
 from matplotlib.colors import ListedColormap
+from sklearn.metrics import confusion_matrix
 
 def noFieldEmpty(array):
     for field in array:
@@ -141,6 +142,15 @@ n.fit(trainingDf.drop("LoanStatus", axis=1), trainingDf["LoanStatus"].map(lambda
 
 score = n.score(evalDf.drop("LoanStatus", axis=1), evalDf["LoanStatus"].map(lambda x : str(x)))
 
+y_pred = n.predict(evalDf.drop("LoanStatus", axis=1))
+
+n.kneighbors_graph()
+plt.show()
+
+cm = confusion_matrix(evalDf["LoanStatus"].map(lambda x : str(x)), y_pred)
+
+print(cm)
+
 print(score)
 
 #Arbol
@@ -159,5 +169,6 @@ plt.show()
 gnb = GaussianNB()
 gnb = gnb.fit(trainingDf.drop("LoanStatus", axis=1), trainingDf["LoanStatus"].map(lambda x : str(x)))
 naiveScore = gnb.score(evalDf.drop("LoanStatus", axis=1), evalDf["LoanStatus"].map(lambda x : str(x)))
+
 
 print(naiveScore)
